@@ -1,7 +1,7 @@
 import json
 import random
 
-from typing import Any
+from typing import Any, Optional # Import Optional
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.artifacts import InMemoryArtifactService
@@ -9,7 +9,7 @@ from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.tool_context import ToolContext
-from task_manager import AgentWithTaskManager
+from task_manager import AgentWithTaskManager # Assuming this import is correct
 
 
 # Local cache of created request_ids for demo purposes.
@@ -17,16 +17,16 @@ request_ids = set()
 
 
 def create_request_form(
-    date: str | None = None,
-    amount: str | None = None,
-    purpose: str | None = None,
+    date: Optional[str] = None, # Changed from str | None
+    amount: Optional[str] = None, # Changed from str | None
+    purpose: Optional[str] = None, # Changed from str | None
 ) -> dict[str, Any]:
     """Create a request form for the employee to fill out.
 
     Args:
-        date (str): The date of the request. Can be an empty string.
-        amount (str): The requested amount. Can be an empty string.
-        purpose (str): The purpose of the request. Can be an empty string.
+        date (Optional[str]): The date of the request. Can be an empty string or None.
+        amount (Optional[str]): The requested amount. Can be an empty string or None.
+        purpose (Optional[str]): The purpose of the request. Can be an empty string or None.
 
     Returns:
         dict[str, Any]: A dictionary containing the request form data.
@@ -46,14 +46,14 @@ def create_request_form(
 def return_form(
     form_request: dict[str, Any],
     tool_context: ToolContext,
-    instructions: str | None = None,
+    instructions: Optional[str] = None, # Changed from str | None
 ) -> dict[str, Any]:
     """Returns a structured json object indicating a form to complete.
 
     Args:
         form_request (dict[str, Any]): The request form data.
         tool_context (ToolContext): The context in which the tool operates.
-        instructions (str): Instructions for processing the form. Can be an empty string.
+        instructions (Optional[str]): Instructions for processing the form. Can be an empty string or None.
 
     Returns:
         dict[str, Any]: A JSON dictionary for the form response.
