@@ -31,7 +31,8 @@ members = [
     "agents/semantickernel",
     "agents/mindsdb",
     "agents/ag2",
-    "agents/search_planner_agent_gadk"
+    "agents/search_planner_agent_gadk",
+    "agents/search_agent_gadk"
 ]
 
 [build-system]

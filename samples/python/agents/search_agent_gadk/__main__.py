@@ -2,7 +2,7 @@ import logging
 import os
 
 import click
-from agent import SearchPlannerAgent
+from agent import SearchAgent
 from common.server import A2AServer
 from common.types import (AgentCapabilities, AgentCard, AgentSkill,
                           MissingAPIKeyError)
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 @click.command()
 @click.option('--host', default='localhost')
-@click.option('--port', default=30001)
+@click.option('--port', default=30002)
 def main(host, port):
     try:
         # Check for API key only if Vertex AI is not configured
@@ -29,28 +29,28 @@ def main(host, port):
 
         capabilities = AgentCapabilities(streaming=True)
         skill = AgentSkill(
-            id='plan_web_searches',
-            name='Web Search Planner aka Eva',
-            description='Given a query, comes up with a set of web searches to perform to best answer the query.',
-            tags=['search', 'research', 'web'],
+            id='search_and_summarize',
+            name='Web Search and Summarize',
+            description='Given a search term, searches the web for that term and produces a concise summary of the results.',
+            tags=['search', 'research', 'web', 'summarize'],
             examples=[
                 'What are the latest developments in quantum computing?',
                 'How does climate change affect marine ecosystems?'
             ],
         )
         agent_card = AgentCard(
-            name='Search Planner Agent aka Eva',
-            description='A helpful research assistant that plans a set of web searches to answer your query. Given a query, it provides 5 to 20 search terms to help you find the best answer.',
+            name='Search Assistant',
+            description='A research assistant that searches the web for a term and produces a concise summary of the results. The summary is 2-3 paragraphs and less than 300 words, capturing the main points succinctly.',
             url=f'http://{host}:{port}/',
             version='1.0.0',
-            defaultInputModes=SearchPlannerAgent.SUPPORTED_CONTENT_TYPES,
-            defaultOutputModes=SearchPlannerAgent.SUPPORTED_CONTENT_TYPES,
+            defaultInputModes=SearchAgent.SUPPORTED_CONTENT_TYPES,
+            defaultOutputModes=SearchAgent.SUPPORTED_CONTENT_TYPES,
             capabilities=capabilities,
             skills=[skill],
         )
         server = A2AServer(
             agent_card=agent_card,
-            task_manager=AgentTaskManager(agent=SearchPlannerAgent()),
+            task_manager=AgentTaskManager(agent=SearchAgent()),
             host=host,
             port=port,
         )
