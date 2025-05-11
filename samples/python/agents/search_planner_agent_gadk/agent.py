@@ -1,7 +1,6 @@
 import json
 import random
-
-from typing import Any, Optional # Import Optional
+from typing import Any, List, Optional  # Import List and Optional
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.artifacts import InMemoryArtifactService
@@ -9,108 +8,45 @@ from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
 from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.adk.tools.tool_context import ToolContext
-from task_manager import AgentWithTaskManager # Assuming this import is correct
+from task_manager import \
+    AgentWithTaskManager  # Assuming this import is correct
+
+# Local cache for search plans
+search_plans = {}
 
 
-# Local cache of created request_ids for demo purposes.
-request_ids = set()
-
-
-def create_request_form(
-    date: Optional[str] = None, # Changed from str | None
-    amount: Optional[str] = None, # Changed from str | None
-    purpose: Optional[str] = None, # Changed from str | None
+def generate_search_terms(
+    query: str,
+    reason: str,
 ) -> dict[str, Any]:
-    """Create a request form for the employee to fill out.
+    """Generate a set of search terms for a given query.
 
     Args:
-        date (Optional[str]): The date of the request. Can be an empty string or None.
-        amount (Optional[str]): The requested amount. Can be an empty string or None.
-        purpose (Optional[str]): The purpose of the request. Can be an empty string or None.
+        query (str): The user's research query.
+        reason (str): Your reasoning for why this search is important to the query.
 
     Returns:
-        dict[str, Any]: A dictionary containing the request form data.
+        dict[str, Any]: A dictionary containing the search plan with search terms.
     """
-    request_id = 'request_id_' + str(random.randint(1000000, 9999999))
-    request_ids.add(request_id)
+    # Generate a unique ID for this search plan
+    plan_id = 'plan_id_' + str(random.randint(1000000, 9999999))
+    
+    # Store in local cache
+    search_plans[plan_id] = {
+        'query': query,
+        'reason': reason,
+        'status': 'generated'
+    }
+    
     return {
-        'request_id': request_id,
-        'date': '<transaction date>' if not date else date,
-        'amount': '<transaction dollar amount>' if not amount else amount,
-        'purpose': '<business justification/purpose of the transaction>'
-        if not purpose
-        else purpose,
+        'plan_id': plan_id,
+        'query': query,
+        'reason': reason,
     }
 
 
-def return_form(
-    form_request: dict[str, Any],
-    tool_context: ToolContext,
-    instructions: Optional[str] = None, # Changed from str | None
-) -> dict[str, Any]:
-    """Returns a structured json object indicating a form to complete.
-
-    Args:
-        form_request (dict[str, Any]): The request form data.
-        tool_context (ToolContext): The context in which the tool operates.
-        instructions (Optional[str]): Instructions for processing the form. Can be an empty string or None.
-
-    Returns:
-        dict[str, Any]: A JSON dictionary for the form response.
-    """
-    if isinstance(form_request, str):
-        form_request = json.loads(form_request)
-
-    tool_context.actions.skip_summarization = True
-    tool_context.actions.escalate = True
-    form_dict = {
-        'type': 'form',
-        'form': {
-            'type': 'object',
-            'properties': {
-                'date': {
-                    'type': 'string',
-                    'format': 'date',
-                    'description': 'Date of expense',
-                    'title': 'Date',
-                },
-                'amount': {
-                    'type': 'string',
-                    'format': 'number',
-                    'description': 'Amount of expense',
-                    'title': 'Amount',
-                },
-                'purpose': {
-                    'type': 'string',
-                    'description': 'Purpose of expense',
-                    'title': 'Purpose',
-                },
-                'request_id': {
-                    'type': 'string',
-                    'description': 'Request id',
-                    'title': 'Request ID',
-                },
-            },
-            'required': list(form_request.keys()),
-        },
-        'form_data': form_request,
-        'instructions': instructions,
-    }
-    return json.dumps(form_dict)
-
-
-def reimburse(request_id: str) -> dict[str, Any]:
-    """Reimburse the amount of money to the employee for a given request_id."""
-    if request_id not in request_ids:
-        return {
-            'request_id': request_id,
-            'status': 'Error: Invalid request_id.',
-        }
-    return {'request_id': request_id, 'status': 'approved'}
-
-
-class ReimbursementAgent(AgentWithTaskManager):
-    """An agent that handles reimbursement requests."""
+class SearchPlannerAgent(AgentWithTaskManager):
+    """An agent that plans web searches to answer user queries."""
 
     SUPPORTED_CONTENT_TYPES = ['text', 'text/plain']
 
@@ -126,42 +62,35 @@ class ReimbursementAgent(AgentWithTaskManager):
         )
 
     def get_processing_message(self) -> str:
-        return 'Processing the reimbursement request...'
+        return 'Planning web searches to answer your query...'
 
     def _build_agent(self) -> LlmAgent:
-        """Builds the LLM agent for the reimbursement agent."""
+        """Builds the LLM agent for the search planner agent."""
         return LlmAgent(
             model='gemini-2.0-flash-001',
-            name='reimbursement_agent',
+            name='search_planner_agent',
             description=(
-                'This agent handles the reimbursement process for the employees'
-                ' given the amount and purpose of the reimbursement.'
+                'This agent plans a set of web searches to best answer'
+                ' user queries by generating relevant search terms.'
             ),
             instruction="""
-    You are an agent who handles the reimbursement process for employees.
+    You are a helpful research assistant. Given a query, come up with a set of web searches to perform to best answer the query. Output between 5 and 20 terms to query for.
 
-    When you receive a reimbursement request, you should first create a new request form using create_request_form(). Only provide default values if they are provided by the user, otherwise use an empty string as the default value.
-      1. 'Date': the date of the transaction.
-      2. 'Amount': the dollar amount of the transaction.
-      3. 'Business Justification/Purpose': the reason for the reimbursement.
-
-    Once you created the form, you should return the result of calling return_form with the form data from the create_request_form call.
-
-    Once you received the filled-out form back from the user, you should then check the form contains all required information:
-      1. 'Date': the date of the transaction.
-      2. 'Amount': the value of the amount of the reimbursement being requested.
-      3. 'Business Justification/Purpose': the item/object/artifact of the reimbursement.
-
-    If you don't have all of the information, you should reject the request directly by calling the request_form method, providing the missing fields.
-
-
-    For valid reimbursement requests, you can then use reimburse() to reimburse the employee.
-      * In your response, you should include the request_id and the status of the reimbursement request.
-
+    For example, if the user asks "What are the latest developments in quantum computing?", you might suggest searches such as:
+      1. "Recent breakthroughs in quantum computing 2025"
+      2. "Quantum supremacy latest achievements"
+      3. "Quantum error correction advances"
+      4. "Top quantum computing companies research"
+      5. "Quantum computing applications in real world"
+      6. "Quantum bits vs classical bits comparison"
+      7. "Quantum computing hardware improvements"
+      8. "Quantum algorithm developments"
+      
+    Your goal is to help users conduct comprehensive research by suggesting diverse and targeted search terms that cover different aspects of their query.
+    
+    When responding, organize the search terms in a clear numbered list and briefly explain why each term would be helpful for the user's research.
     """,
             tools=[
-                create_request_form,
-                reimburse,
-                return_form,
+                generate_search_terms,
             ],
         )

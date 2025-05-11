@@ -2,7 +2,7 @@ import logging
 import os
 
 import click
-from agent import ReimbursementAgent
+from agent import SearchPlannerAgent
 from common.server import A2AServer
 from common.types import (AgentCapabilities, AgentCard, AgentSkill,
                           MissingAPIKeyError)
@@ -29,27 +29,28 @@ def main(host, port):
 
         capabilities = AgentCapabilities(streaming=True)
         skill = AgentSkill(
-            id='process_reimbursement',
-            name='Process Reimbursement Tool',
-            description='Helps with the reimbursement process for users given the amount and purpose of the reimbursement.',
-            tags=['reimbursement'],
+            id='plan_web_searches',
+            name='Web Search Planner Tool',
+            description='Given a query, comes up with a set of web searches to perform to best answer the query.',
+            tags=['search', 'research', 'web'],
             examples=[
-                'Can you reimburse me $20 for my lunch with the clients?'
+                'What are the latest developments in quantum computing?',
+                'How does climate change affect marine ecosystems?'
             ],
         )
         agent_card = AgentCard(
-            name='Reimbursement Agent',
-            description='This agent handles the reimbursement process for the employees given the amount and purpose of the reimbursement.',
+            name='Search Planner Agent',
+            description='A helpful research assistant that plans a set of web searches to answer your query. Given a query, it provides 5 to 20 search terms to help you find the best answer.',
             url=f'http://{host}:{port}/',
             version='1.0.0',
-            defaultInputModes=ReimbursementAgent.SUPPORTED_CONTENT_TYPES,
-            defaultOutputModes=ReimbursementAgent.SUPPORTED_CONTENT_TYPES,
+            defaultInputModes=SearchPlannerAgent.SUPPORTED_CONTENT_TYPES,
+            defaultOutputModes=SearchPlannerAgent.SUPPORTED_CONTENT_TYPES,
             capabilities=capabilities,
             skills=[skill],
         )
         server = A2AServer(
             agent_card=agent_card,
-            task_manager=AgentTaskManager(agent=ReimbursementAgent()),
+            task_manager=AgentTaskManager(agent=SearchPlannerAgent()),
             host=host,
             port=port,
         )
